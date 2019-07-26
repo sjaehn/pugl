@@ -1,0 +1,14 @@
+option('cairo', type: 'combo', choices: ['yes', 'no', 'auto'], value: 'auto',
+       description: 'Enable support for the Cairo graphics API')
+
+option('examples', type: 'boolean', value: true,
+       description: 'Build example programs')
+
+option('opengl', type: 'combo', choices: ['yes', 'no', 'auto'], value: 'auto',
+       description: 'Enable support for the OpenGL graphics API')
+
+option('strict', type: 'boolean', value: false,
+       description: 'Enable ultra-strict warnings')
+
+option('tests', type: 'boolean', value: true,
+       description: 'Build tests')
