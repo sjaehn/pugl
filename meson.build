@@ -2,7 +2,11 @@ project('pugl', ['c'],
         version: '0.2.0',
         license: 'ISC',
         meson_version: '>= 0.53.0',
-        default_options: ['c_std=c99', 'cpp_std=c++11'])
+        default_options: [
+          'c_std=c99',
+          'cpp_std=c++11',
+          'default_library=both'
+        ])
 
 # Build tools
 pkg = import('pkgconfig')
@@ -175,25 +179,17 @@ core_deps += [m_dep]
 core_sources += platform_sources
 core_name = 'pugl_@0@@1@'.format(platform, version_suffix)
 
-libpugl = shared_library(core_name, core_sources,
-                         version: meson.project_version(),
-                         include_directories: ['.'],
-                         c_args: shared_args + core_args,
-                         dependencies: core_deps,
-                         gnu_symbol_visibility: 'hidden',
-                         install: true)
-
-libpugl_a = static_library(core_name, core_sources,
-                           include_directories: ['.'],
-                           c_args: static_args + core_args,
-                           dependencies: core_deps,
-                           install: true)
+libpugl = library(core_name, core_sources,
+                  version: meson.project_version(),
+                  include_directories: ['.'],
+                  c_args: shared_args + core_args,
+                  dependencies: core_deps,
+                  gnu_symbol_visibility: 'hidden',
+                  install: true)
 
 pugl_dep = declare_dependency(link_with: libpugl, dependencies: core_deps)
-pugl_a_dep = declare_dependency(link_with: libpugl_a, dependencies: core_deps)
 
 pkg.generate([libpugl],
-             libraries_private: [libpugl_a],
              name: 'Pugl',
              filebase: versioned_name,
              subdirs: [versioned_name],
@@ -205,25 +201,18 @@ if opengl_dep.found()
   name = 'pugl_' + platform + '_gl' + version_suffix
   sources = 'pugl/detail/' + platform + '_gl' + extension
 
-  gl_backend = shared_library(name, sources,
-                              version: meson.project_version(),
-                              include_directories: ['.'],
-                              c_args: shared_args,
-                              dependencies: [pugl_dep, opengl_dep],
-                              gnu_symbol_visibility: 'hidden',
-                              install: true)
+  gl_backend = library(name, sources,
+                       version: meson.project_version(),
+                       include_directories: ['.'],
+                       c_args: shared_args,
+                       dependencies: [pugl_dep, opengl_dep],
+                       gnu_symbol_visibility: 'hidden',
+                       install: true)
 
-  gl_backend_a = static_library(name, sources,
-                                include_directories: ['.'],
-                                c_args: static_args,
-                                dependencies: [pugl_a_dep, opengl_dep],
-                                install: true)
-
-  gl_backend_dep = declare_dependency(link_with: gl_backend_a,
-                                      dependencies: [pugl_a_dep, opengl_dep])
+  gl_backend_dep = declare_dependency(link_with: gl_backend,
+                                      dependencies: [pugl_dep, opengl_dep])
 
   pkg.generate(libraries: [libpugl, gl_backend],
-               libraries_private: [libpugl_a, gl_backend_a],
                name: 'Pugl OpenGL',
                filebase: 'pugl-gl-@0@'.format(major_version),
                subdirs: [name],
@@ -236,25 +225,18 @@ if cairo_dep.found()
   name = 'pugl_' + platform + '_cairo' + version_suffix
   sources = 'pugl/detail/' + platform + '_cairo' + extension
 
-  cairo_backend = shared_library(name, sources,
-                                 version: meson.project_version(),
-                                 include_directories: ['.'],
-                                 c_args: shared_args,
-                                 dependencies: [pugl_dep, cairo_dep],
-                                 gnu_symbol_visibility: 'hidden',
-                                 install: true)
+  cairo_backend = library(name, sources,
+                          version: meson.project_version(),
+                          include_directories: ['.'],
+                          c_args: shared_args,
+                          dependencies: [pugl_dep, cairo_dep],
+                          gnu_symbol_visibility: 'hidden',
+                          install: true)
 
-  cairo_backend_a = static_library(name, sources,
-                                   include_directories: ['.'],
-                                   c_args: static_args,
-                                   dependencies: [pugl_a_dep, cairo_dep],
-                                   install: true)
-
-  cairo_backend_dep = declare_dependency(link_with: cairo_backend_a,
-                                         dependencies: [pugl_a_dep, cairo_dep])
+  cairo_backend_dep = declare_dependency(link_with: cairo_backend,
+                                         dependencies: [pugl_dep, cairo_dep])
 
   pkg.generate(libraries: [libpugl, cairo_backend],
-               libraries_private: [libpugl_a, cairo_backend_a],
                name: 'Pugl Cairo',
                filebase: 'pugl-cairo-@0@'.format(major_version),
                subdirs: [name],
@@ -289,7 +271,7 @@ if get_option('examples')
       target = example.split('.')[0]
       executable(target, source,
                  include_directories: ['.'],
-                 dependencies: [pugl_a_dep, cairo_backend_dep],
+                 dependencies: [pugl_dep, cairo_backend_dep],
                  gui_app: true)
     endforeach
   endif
@@ -299,14 +281,14 @@ if get_option('tests')
   foreach test : basic_tests
     test(test,
          executable('test_' + test, 'test/test_@0@.c'.format(test),
-                    dependencies: [pugl_a_dep]))
+                    dependencies: [pugl_dep]))
   endforeach
 
   if opengl_dep.found()
     foreach test : gl_tests
       test(test,
            executable('test_' + test, 'test/test_@0@.c'.format(test),
-                      dependencies: [pugl_a_dep, gl_backend_dep]))
+                      dependencies: [pugl_dep, gl_backend_dep]))
     endforeach
   endif
 endif
