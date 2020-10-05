@@ -1,5 +1,5 @@
 project('pugl', ['c'],
-        version: '0.3.0',
+        version: '0.2.0',
         license: 'ISC',
         meson_version: '>= 0.53.0',
         default_options: ['c_std=c99', 'cpp_std=c++11'])
@@ -28,21 +28,38 @@ major_version = meson.project_version().split('.')[0]
 version_suffix = '-@0@'.format(major_version)
 versioned_name = 'pugl' + version_suffix
 
-headers = [
-  'pugl/detail/implementation.h',
-  'pugl/detail/mac.h',
-  'pugl/detail/types.h',
-  'pugl/detail/win.h',
-  'pugl/detail/x11.h',
+public_headers = [
   'pugl/gl.h',
   'pugl/glu.h',
   'pugl/pugl.h',
+  'pugl/pugl.hpp',
+  'pugl/pugl.ipp',
   'pugl/pugl_cairo.h',
   'pugl/pugl_cairo.hpp',
   'pugl/pugl_gl.h',
   'pugl/pugl_gl.hpp',
   'pugl/pugl_stub.h',
   'pugl/pugl_stub.hpp',
+]
+
+implementation_files = [
+  'pugl/detail/implementation.c',
+  'pugl/detail/implementation.h',
+  'pugl/detail/mac.h',
+  'pugl/detail/mac.m',
+  'pugl/detail/mac_cairo.m',
+  'pugl/detail/mac_gl.m',
+  'pugl/detail/mac_stub.m',
+  'pugl/detail/stub.h',
+  'pugl/detail/types.h',
+  'pugl/detail/win.c',
+  'pugl/detail/win.h',
+  'pugl/detail/win_cairo.c',
+  'pugl/detail/win_gl.c',
+  'pugl/detail/x11.c',
+  'pugl/detail/x11.h',
+  'pugl/detail/x11_cairo.c',
+  'pugl/detail/x11_gl.c',
 ]
 
 core_sources = [
@@ -81,35 +98,21 @@ m_dep = cc.find_library('m', required: false)
 dl_dep = cc.find_library('dl', required: false)
 
 # Cairo
-cairo_deps = []
+cairo_dep = disabler()
 enable_cairo = get_option('cairo')
-have_cairo = false
-if enable_cairo == 'no'
-  message('Cairo support explicitly disabled')
-else
-  cairo_dep = dependency('cairo', required: false, include_type: 'system')
-  if cairo_dep.found()
-    cairo_deps = [cairo_dep]
-    have_cairo = true
-  elif enable_cairo == 'yes' and not have_cairo
-    error('Cairo support not found, but was explicitly requested.')
-  endif
+if enable_cairo != 'no'
+  cairo_dep = dependency('cairo',
+                         required: enable_cairo == 'yes',
+                         include_type: 'system')
 endif
 
 # OpenGL
-opengl_deps = []
+opengl_dep = disabler()
 enable_opengl = get_option('opengl')
-have_opengl = false
-if enable_opengl == 'no'
-  message('OpenGL support explicitly disabled')
-else
-  gl_dep = dependency('GL', include_type: 'system')
-  if gl_dep.found()
-    opengl_deps = [gl_dep]
-    have_opengl = true
-  elif enable_opengl == 'yes' and not have_opengl
-    error('OpenGL support not found, but was explicitly requested.')
-  endif
+if enable_opengl != 'no'
+  opengl_dep = dependency('GL',
+                          required: enable_opengl == 'yes',
+                          include_type: 'system')
 endif
 
 core_args = []
@@ -136,7 +139,7 @@ elif build_machine.system() == 'windows'
   platform_sources = ['pugl/detail/win.c']
   extension = '.c'
 else
-  x11_dep = dependency('X11', include_type: 'system')
+  x11_dep = cc.find_library('X11')
 
   xcursor_dep = cc.find_library('Xcursor', required: false)
   if xcursor_dep.found()
@@ -173,6 +176,7 @@ core_sources += platform_sources
 core_name = 'pugl_@0@@1@'.format(platform, version_suffix)
 
 libpugl = shared_library(core_name, core_sources,
+                         version: meson.project_version(),
                          include_directories: ['.'],
                          c_args: shared_args + core_args,
                          dependencies: core_deps,
@@ -197,59 +201,62 @@ pkg.generate([libpugl],
              description: 'Pugl GUI library core')
 
 # Build GL backend
-if gl_dep.found()
+if opengl_dep.found()
   name = 'pugl_' + platform + '_gl' + version_suffix
   sources = 'pugl/detail/' + platform + '_gl' + extension
 
   gl_backend = shared_library(name, sources,
+                              version: meson.project_version(),
                               include_directories: ['.'],
                               c_args: shared_args,
-                              dependencies: [pugl_dep, gl_dep, opengl_deps],
+                              dependencies: [pugl_dep, opengl_dep],
                               gnu_symbol_visibility: 'hidden',
                               install: true)
 
   gl_backend_a = static_library(name, sources,
                                 include_directories: ['.'],
                                 c_args: static_args,
-                                dependencies: [pugl_a_dep, gl_dep, opengl_deps],
+                                dependencies: [pugl_a_dep, opengl_dep],
                                 install: true)
 
   gl_backend_dep = declare_dependency(link_with: gl_backend_a,
-                                      dependencies: [pugl_a_dep, gl_dep, opengl_deps])
+                                      dependencies: [pugl_a_dep, opengl_dep])
 
   pkg.generate(libraries: [libpugl, gl_backend],
                libraries_private: [libpugl_a, gl_backend_a],
                name: 'Pugl OpenGL',
-               filebase: name,
+               filebase: 'pugl-gl-@0@'.format(major_version),
                subdirs: [name],
                version: meson.project_version(),
                description: 'Pugl GUI library with OpenGL backend')
 endif
 
 # Build Cairo backend
-if have_cairo
+if cairo_dep.found()
   name = 'pugl_' + platform + '_cairo' + version_suffix
   sources = 'pugl/detail/' + platform + '_cairo' + extension
 
   cairo_backend = shared_library(name, sources,
+                                 version: meson.project_version(),
                                  include_directories: ['.'],
                                  c_args: shared_args,
-                                 dependencies: [pugl_dep, cairo_deps],
+                                 dependencies: [pugl_dep, cairo_dep],
                                  gnu_symbol_visibility: 'hidden',
                                  install: true)
 
   cairo_backend_a = static_library(name, sources,
                                    include_directories: ['.'],
                                    c_args: static_args,
-                                   dependencies: [pugl_a_dep, cairo_deps])
+                                   dependencies: [pugl_a_dep, cairo_dep],
+                                   install: true)
 
   cairo_backend_dep = declare_dependency(link_with: cairo_backend_a,
-                                         dependencies: [pugl_a_dep, cairo_deps])
+                                         dependencies: [pugl_a_dep, cairo_dep])
 
   pkg.generate(libraries: [libpugl, cairo_backend],
                libraries_private: [libpugl_a, cairo_backend_a],
                name: 'Pugl Cairo',
-               filebase: name,
+               filebase: 'pugl-cairo-@0@'.format(major_version),
                subdirs: [name],
                version: meson.project_version(),
                description: 'Pugl GUI library with Cairo backend')
@@ -257,7 +264,7 @@ endif
 
 if get_option('examples')
   # Build GL examples
-  if have_opengl
+  if opengl_dep.found()
     foreach example : gl_examples
       source = ['examples/' + example]
       target = example.split('.')[0]
@@ -276,7 +283,7 @@ if get_option('examples')
   endif
 
   # Build Cairo examples
-  if have_cairo
+  if cairo_dep.found()
     foreach example : cairo_examples
       source = ['examples/' + example]
       target = example.split('.')[0]
@@ -295,7 +302,7 @@ if get_option('tests')
                     dependencies: [pugl_a_dep]))
   endforeach
 
-  if have_opengl
+  if opengl_dep.found()
     foreach test : gl_tests
       test(test,
            executable('test_' + test, 'test/test_@0@.c'.format(test),
@@ -304,12 +311,13 @@ if get_option('tests')
   endif
 endif
 
-install_headers(headers, subdir: versioned_name / 'pugl')
+install_headers(public_headers, subdir: versioned_name / 'pugl')
+if get_option('implementation_headers')
+  install_headers(implementation_files, subdir: versioned_name / 'pugl')
+endif
 
-summary('Platform', platform, section: 'Configuration')
-
-summary('Cairo support', have_cairo, section: 'Graphics', bool_yn: true)
-summary('OpenGL support', have_opengl, section: 'Graphics', bool_yn: true)
-
-summary('Tests', get_option('tests'), section: 'Extras', bool_yn: true)
-summary('Examples', get_option('examples'), section: 'Extras', bool_yn: true)
+summary('Platform', platform)
+summary('Cairo backend', cairo_dep.found(), bool_yn: true)
+summary('OpenGL backend', opengl_dep.found(), bool_yn: true)
+summary('Tests', get_option('tests'), bool_yn: true)
+summary('Examples', get_option('examples'), bool_yn: true)

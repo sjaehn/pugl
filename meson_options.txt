@@ -4,6 +4,9 @@ option('cairo', type: 'combo', choices: ['yes', 'no', 'auto'], value: 'auto',
 option('examples', type: 'boolean', value: true,
        description: 'Build example programs')
 
+option('implementation_headers', type: 'boolean', value: false,
+       description: 'Install complete implementation as headers')
+
 option('opengl', type: 'combo', choices: ['yes', 'no', 'auto'], value: 'auto',
        description: 'Enable support for the OpenGL graphics API')
 
