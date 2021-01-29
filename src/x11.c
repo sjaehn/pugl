@@ -1119,20 +1119,12 @@ puglDispatchX11Events(PuglWorld* world)
       XWindowAttributes attrs;
       XGetWindowAttributes(view->impl->display, view->impl->win, &attrs);
 
-<<<<<<< HEAD
-      const PuglEventConfigure configure = {
-        PUGL_CONFIGURE, 0, 
-        (double)attrs.x, (double)attrs.y, 
-        (double)attrs.width, (double)attrs.height
-      };
-=======
       const PuglEventConfigure configure = {PUGL_CONFIGURE,
                                             0,
                                             (double)attrs.x,
                                             (double)attrs.y,
                                             (double)attrs.width,
                                             (double)attrs.height};
->>>>>>> e497eea68ca704f62d3a65f1bbe787167cd3ae3e
 
       puglDispatchEvent(view, (const PuglEvent*)&configure);
       puglDispatchEvent(view, &event);
